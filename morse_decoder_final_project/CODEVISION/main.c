@@ -1,0 +1,219 @@
+#include <mega32.h>
+#include <alcd.h>
+#include <delay.h>
+#include <string.h>
+
+#define DOT_TIME_MS 400
+#define CHAR_END_TIME_MS 1000
+#define SPACE_MARK_TIME_MS 2000
+#define WORD_END_TIME_MS 2000  // 2 seconds for word end
+#define EEPROM_START_ADDR 0x00
+
+
+
+
+int i;
+
+typedef struct { 
+    char *code; // pointer string array for efficiency in memory
+    char letter;
+} MorseDictionary;// type of data
+
+MorseDictionary morse_dict[] = {
+    {".-", 'A'}, {"-...", 'B'}, {"-.-.", 'C'}, {"-..", 'D'}, {".", 'E'}, 
+    {"..-.", 'F'}, {"--.", 'G'}, {"....", 'H'}, {"..", 'I'}, {".---", 'J'}, 
+    {"-.-", 'K'}, {".-..", 'L'}, {"--", 'M'}, {"-.", 'N'}, {"---", 'O'}, 
+    {".--.", 'P'}, {"--.-", 'Q'}, {".-.", 'R'}, {"...", 'S'}, {"-", 'T'}, 
+    {"..-", 'U'}, {"...-", 'V'}, {".--", 'W'}, {"-..-", 'X'}, {"-.--", 'Y'}, 
+    {"--..", 'Z'}
+};
+
+int button_pressed = 0;
+int press_duration = 0;
+int idle_time = 0; //not pressed duration
+char morse_buffer[10]; //store morse code
+int morse_index = 0; //position of char in morse
+char eeprom_data[100];
+int eeprom_index = 0;
+int word_end_flag = 0;  // flag to track if word end is detected
+
+void init_interrupts(void);
+void process_morse(void);
+void decode_morse(void);
+void write_morse_to_eeprom(void);
+void read_morse_from_eeprom(void);  
+void reset_system(void);  
+
+void WRITER_EEPROM(unsigned char addr, unsigned char data) {
+    while (EECR & (1 << EEWE));
+    EEAR = addr;
+    EEDR = data;
+    EECR |= (1 << EEMWE);
+    EECR |= (1 << EEWE);
+}
+
+unsigned char READER_EEPROM(unsigned char addr) {
+    while (EECR & (1 << EEWE));
+    EEAR = addr;
+    EECR |= (1 << EERE);
+    return EEDR;
+}
+
+void main(void) {
+    lcd_init(32);
+
+    DDRD &= ~(1 << 2);   // PD2 input for Morse button
+    PORTD |= (1 << 2);   // Enable pull-up on PD2
+    DDRD &= ~(1 << 3);   // PD3 input for Read button
+    PORTD |= (1 << 3);   // Enable pull-up on PD3
+    DDRD &= ~(1 << 4);   // PD4 input for Write button
+    PORTD |= (1 << 4);   // Enable pull-up on PD4
+    
+    DDRD &= ~(1 << 5);   // PD5 input for Reset button
+    PORTD |= (1 << 5);   // Enable pull-up on PD5
+
+    init_interrupts();
+
+    #asm("sei")
+
+    while (1) {
+        if (button_pressed) {
+            process_morse();
+            button_pressed = 0;
+        }
+
+        // check for space mark
+        if (idle_time >= SPACE_MARK_TIME_MS && morse_index > 0) {
+            morse_buffer[morse_index] = '\0';
+            eeprom_data[eeprom_index++] = ' ';
+            morse_index = 0;
+            idle_time = 0;  // Store space mark
+        }
+        // check for end of character to be shown
+        else if (idle_time >= CHAR_END_TIME_MS && morse_index > 0) {
+            morse_buffer[morse_index] = '\0';
+            decode_morse();
+            morse_index = 0;
+            idle_time = 0;
+            word_end_flag = 0;  // Reset word end flag after character decode
+        }
+
+        // Check for end of word
+        if (idle_time >= WORD_END_TIME_MS && eeprom_index > 0 && !word_end_flag) {
+            eeprom_data[eeprom_index++] = ' ';  // Space between words
+            word_end_flag = 1;  // Set flag to indicate word end added
+            idle_time = 0;
+        }
+
+        if (!(PIND & (1 << 4))) {
+            write_morse_to_eeprom();
+            lcd_clear();
+            lcd_puts("Word stored");
+            delay_ms(1000);
+            lcd_clear();
+            idle_time = 0;
+            word_end_flag = 0;  // Reset flag after word write
+        }
+
+        if (!(PIND & (1 << 3))) {
+            read_morse_from_eeprom();  // Call function to read from EEPROM
+            idle_time = 0;
+            while (!(PIND & (1 << 3)));  // Wait until Read button is released
+        }
+        
+        if (!(PIND & (1 << 5))) {
+            reset_system();  // Call reset function when reset button is pressed
+            while (!(PIND & (1 << 5)));  // Wait until Reset button is released
+        }
+
+        delay_ms(1);
+        idle_time++;
+    }
+}
+
+void init_interrupts(void) {
+    MCUCR |= (1 << ISC01);  // Trigger INT0 on falling edge
+    GICR |= (1 << INT0);    // Enable INT0 interrupt
+}
+
+interrupt [EXT_INT0] void ext_int0_isr(void) {
+    if (!(PIND & (1 << 2))) {
+        while (!(PIND & (1 << 2))) {
+            press_duration++;
+            delay_ms(1);
+        }
+        button_pressed = 1;
+    }
+}
+
+void process_morse(void) {
+    if (press_duration > DOT_TIME_MS) {
+        morse_buffer[morse_index++] = '-';
+    } else {
+        morse_buffer[morse_index++] = '.';
+    }
+
+    morse_buffer[morse_index] = '\0';
+    lcd_clear();
+    lcd_puts(morse_buffer);
+
+    press_duration = 0;
+    idle_time = 0;
+}
+
+void decode_morse(void) {
+    // Find the corresponding letter for the morse code
+
+//size morse dict is count chars * 8 bytes = 26* 8
+// sizeof(morse_dict[0] is 8
+
+    for (i = 0; i < sizeof(morse_dict) / sizeof(morse_dict[0]); i++) {
+        if (strcmp(morse_dict[i].code, morse_buffer) == 0) { //if codes are the same
+            eeprom_data[eeprom_index++] = morse_dict[i].letter;
+            lcd_clear();
+            lcd_puts(eeprom_data);
+            break;
+        }
+    }
+}
+
+void write_morse_to_eeprom(void) {
+    for (i = 0; i < eeprom_index; i++) {
+        WRITER_EEPROM(EEPROM_START_ADDR + i, eeprom_data[i]); //write data in eeprom buffer to eeprom one by one
+    }
+    WRITER_EEPROM(EEPROM_START_ADDR + eeprom_index, '\0'); // flag end of data
+    eeprom_index = 0; //clears buffer for new data
+}
+
+void read_morse_from_eeprom(void) {
+    int index = 0;
+    unsigned char data;
+
+    lcd_clear();
+    while (1) {
+        data = READER_EEPROM(EEPROM_START_ADDR + index);
+        if (data == '\0') {
+            // end of message then exit loop
+            break;
+        } else if (data == ' ') {
+            // space between words
+            lcd_putchar(' ');
+        } else {
+            // Display character
+            lcd_putchar(data);
+        }
+        index++;
+        delay_ms(50);  // Delay for visual separation (adjust as needed)
+    }
+}
+
+void reset_system(void) {
+    // Perform actions to reset the system
+    eeprom_index = 0;
+    morse_index = 0;
+    word_end_flag = 0;
+    lcd_clear();
+    lcd_puts("System reset");
+    delay_ms(1000);
+    lcd_clear();
+}

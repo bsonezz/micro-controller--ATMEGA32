@@ -1,0 +1,47 @@
+RAM Allocation [bytes]
+Variable                                                                          Address   Size
+------------------------------------------------------------------------------------------------
+morse_dict                                                                        0x02E5      78
+morse_buffer                                                                      0x0333      10
+eeprom_data                                                                       0x033D     100
+eeprom_index                                                                      0x03A1       2
+word_end_flag                                                                     0x03A3       2
+_base_y                                                                           0x03A5       4
+_lcd_x                                                                            0x03A9       1
+_lcd_y                                                                            0x03AA       1
+_lcd_maxx                                                                         0x03AB       1
+
+EEPROM Allocation [bytes]
+Variable                                                                          Address   Size
+------------------------------------------------------------------------------------------------
+
+Register Allocation
+Variable                                                                          Register  Size
+------------------------------------------------------------------------------------------------
+i                                                                                 R4,R5        2
+button_pressed                                                                    R6,R7        2
+press_duration                                                                    R8,R9        2
+idle_time                                                                         R10,R11      2
+morse_index                                                                       R12,R13      2
+
+FLASH Allocation [words]
+Function                                                                          Address   Size
+------------------------------------------------------------------------------------------------
+WRITER_EEPROM                                                                     0x00117     13
+READER_EEPROM                                                                     0x00124     11
+main                                                                              0x0012F    115
+init_interrupts                                                                   0x001A2      7
+ext_int0_isr                                                                      0x001A9     42
+process_morse                                                                     0x001D3     24
+decode_morse                                                                      0x001EB     56
+write_morse_to_eeprom                                                             0x00223     32
+read_morse_from_eeprom                                                            0x00243     27
+reset_system                                                                      0x0025E     17
+_lcd_write_nibble_G100                                                            0x0026F     37
+_lcd_write_data                                                                   0x00294     12
+lcd_gotoxy                                                                        0x002A0     17
+lcd_clear                                                                         0x002B1     14
+lcd_putchar                                                                       0x002BF     32
+lcd_puts                                                                          0x002DF     17
+lcd_init                                                                          0x002F0     48
+strcmp                                                                            0x00320     20
