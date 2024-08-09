@@ -1,0 +1,81 @@
+#include <mega32.h>
+#include <alcd.h>
+#include <delay.h>
+#include <stdio.h>
+
+#define F_CPU 8000000UL
+#define LED_PIN PORTB1
+#define EEPROM_ADDR 0x00
+
+void eeprom_write(int addr, int data) {
+    while (EECR & (1 << EEWE)); // Wait for completion of previous write
+    EEAR = addr;                // Set up address and data registers
+    EEDR = data;
+    EECR |= (1 << EEMWE);       // Write logical one to EEMWE
+    EECR |= (1 << EEWE);        // Start eeprom write by setting EEWE
+}
+
+int eeprom_read(int addr) {
+    while (EECR & (1 << EEWE)); // Wait for completion of previous write
+    EEAR = addr;                // Set up address register
+    EECR |= (1 << EERE);        // Start eeprom read by writing EERE
+    return EEDR;                // Return data from data register
+}
+
+void init_watchdog() {
+    // Enable the watchdog timer with a timeout of approximately 2 seconds
+    WDTCR = (1 << WDE) | (1 << WDP2) | (1 << WDP1); // 2s timeout
+}
+
+void reset_watchdog() {
+    // Reset the watchdog timer
+    #asm
+    wdr
+    #endasm
+}
+
+void init_io() {
+    // Set LED pin as output
+    DDRB |= (1 << LED_PIN);
+
+    // Initialize LCD
+    lcd_init(16);  // Initialize for 16x2 display
+    delay_ms(200); // Delay after LCD initialization
+    lcd_clear();   // Clear LCD screen
+}
+
+void display_reset_count(int count) {
+    char buffer[16];
+    sprintf(buffer, "wd timer %d", count);
+    lcd_gotoxy(0, 0);
+    lcd_puts(buffer);
+}
+
+void delay_long() {
+    // Simulate a hanging condition with a long delay
+    delay_ms(3000);  // Use CodeVisionAVR's delay function
+}
+
+void main(void) {
+    int count = eeprom_read(EEPROM_ADDR);
+
+    // Increment reset count and store back in EEPROM
+    count++;
+    eeprom_write(EEPROM_ADDR, count);
+
+    // Initialize I/O and watchdog timer
+    init_io();
+    init_watchdog();
+
+    // Display reset count on LCD and turn on LED
+    display_reset_count(count);
+    PORTB |= (1 << LED_PIN);
+
+    while (1) {
+        // Simulate a hanging condition
+        delay_long();
+
+        // Reset the watchdog timer
+        reset_watchdog();
+    }
+}
