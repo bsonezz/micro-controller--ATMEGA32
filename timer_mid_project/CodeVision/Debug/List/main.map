@@ -1,0 +1,37 @@
+RAM Allocation [bytes]
+Variable                                                                          Address   Size
+------------------------------------------------------------------------------------------------
+digit_count                                                                       0x0260       2
+pos                                                                               0x0262       2
+show_time                                                                         0x0264       2
+display_index                                                                     0x0266       2
+led_pattern                                                                       0x0268       7
+seg                                                                               0x026F      20
+ref                                                                               0x0283       4
+i                                                                                 0x0287       2
+segref                                                                            0x0289       2
+keys                                                                              0x028B      16
+
+EEPROM Allocation [bytes]
+Variable                                                                          Address   Size
+------------------------------------------------------------------------------------------------
+
+Register Allocation
+Variable                                                                          Register  Size
+------------------------------------------------------------------------------------------------
+minutes                                                                           R4,R5        2
+seconds                                                                           R6,R7        2
+counting_active                                                                   R8,R9        2
+paused                                                                            R10,R11      2
+input_stage                                                                       R12,R13      2
+
+FLASH Allocation [words]
+Function                                                                          Address   Size
+------------------------------------------------------------------------------------------------
+timer1_compa_isr                                                                  0x0008C     30
+timer0_comp_isr                                                                   0x000AA     64
+display_value                                                                     0x000EA    107
+buzzer_and_led_pattern                                                            0x00155     44
+handle_keypad_input                                                               0x00181    304
+short_buzzer_beep                                                                 0x002B1      7
+main                                                                              0x002B8     36
